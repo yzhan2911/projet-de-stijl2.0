@@ -5,3 +5,9 @@ compiler :
  executer aller dans moniteur
  un terminale nouveau:
  /4IR/temps reel/dumber/software/monitor/monitor-python-qt$ ./monitor-python
+
+
+
+
+
+ Batterie fini
