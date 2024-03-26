@@ -77,6 +77,8 @@ private:
     RT_TASK th_startRobot;
     RT_TASK th_move;
     RT_TASK th_checkBatterie;
+    RT_TASK th_watchdog;
+    RT_TASK th_reloadMessages;
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -86,6 +88,7 @@ private:
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_checkbatterie;
+    RT_MUTEX mutex_watchdog;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -94,6 +97,8 @@ private:
     RT_SEM sem_openComRobot;
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
+    RT_SEM sem_watchdog;
+    RT_SEM sem_reloadMessages;
 
     /**********************************************************************/
     /* Message queues                                                     */
@@ -134,7 +139,12 @@ private:
      */
     void MoveTask(void *arg);
     
+    /*fonctionnalite 13*/
     void CheckBattery(void *arg);
+    
+    /*fonctionnalite 11*/
+    void watchdog(void *arg);
+    void RobotReloadMessage(void *arg); 
     
     /**********************************************************************/
     /* Queue services                                                     */
