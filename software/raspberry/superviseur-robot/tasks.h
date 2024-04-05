@@ -64,6 +64,7 @@ private:
     /**********************************************************************/
     ComMonitor monitor;
     ComRobot robot;
+     Camera* camera;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
     
@@ -79,6 +80,10 @@ private:
     RT_TASK th_checkBatterie;
     RT_TASK th_watchdog;
     RT_TASK th_reloadMessages;
+    RT_TASK th_openCamera;
+    RT_TASK th_captureImage;
+    RT_TASK th_closeCamera;
+    
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -89,7 +94,8 @@ private:
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_checkbatterie;
     RT_MUTEX mutex_watchdog;
-
+    RT_MUTEX mutex_camera;
+    
     /**********************************************************************/
     /* Semaphores                                                         */
     /**********************************************************************/
@@ -99,7 +105,9 @@ private:
     RT_SEM sem_startRobot;
     RT_SEM sem_watchdog;
     RT_SEM sem_reloadMessages;
-
+    RT_SEM sem_closeCamera;
+    RT_SEM sem_openCamera;
+    RT_SEM sem_captureImage;
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -109,6 +117,7 @@ private:
     /**********************************************************************/
     /* Tasks' functions                                                   */
     /**********************************************************************/
+   
     /**
      * @brief Thread handling server communication with the monitor.
      */
@@ -145,7 +154,13 @@ private:
     /*fonctionnalite 11*/
     void watchdog(void *arg);
     void RobotReloadMessage(void *arg); 
+    /*fonctionnalite 14*/
+    void OpenCamera(void *arg);
+    /*fonctionnalite 15*/
+    void captureImage(void *arg);
     
+    /*fonctionnalite 16*/
+    void FermeCamera(void *arg);
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/
