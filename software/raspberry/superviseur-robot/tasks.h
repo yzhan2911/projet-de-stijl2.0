@@ -64,10 +64,10 @@ private:
     /**********************************************************************/
     ComMonitor monitor;
     ComRobot robot;
-     Camera* camera;
+    Camera* camera;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
-    
+    int compteur = 0;
     /**********************************************************************/
     /* Tasks                                                              */
     /**********************************************************************/
@@ -83,6 +83,7 @@ private:
     RT_TASK th_openCamera;
     RT_TASK th_captureImage;
     RT_TASK th_closeCamera;
+ 
     
     
     /**********************************************************************/
@@ -95,7 +96,7 @@ private:
     RT_MUTEX mutex_checkbatterie;
     RT_MUTEX mutex_watchdog;
     RT_MUTEX mutex_camera;
-    
+  
     /**********************************************************************/
     /* Semaphores                                                         */
     /**********************************************************************/
@@ -108,6 +109,7 @@ private:
     RT_SEM sem_closeCamera;
     RT_SEM sem_openCamera;
     RT_SEM sem_captureImage;
+ 
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -147,7 +149,8 @@ private:
      * @brief Thread handling control of the robot.
      */
     void MoveTask(void *arg);
-    
+    /*fonctionnalite 8-9*/
+    void CompteurA3(Message *msg);
     /*fonctionnalite 13*/
     void CheckBattery(void *arg);
     

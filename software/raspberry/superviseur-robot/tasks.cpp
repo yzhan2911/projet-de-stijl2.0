@@ -32,6 +32,7 @@
 #define PRIORITY_OPENCAMERA 20
 #define PRIORITY_CLOSECAMERA 20
 #define PRIORITY_CAPTUREIMAGE 20
+
 /*
  * Some remarks:
  * 1- This program is mostly a template. It shows you how to create tasks, semaphore
@@ -86,6 +87,7 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -127,6 +129,7 @@ void Tasks::Init() {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    
     
     cout << "Semaphores created successfully" << endl << flush;
 
@@ -179,8 +182,6 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-    
-    
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -366,7 +367,6 @@ void Tasks::ReceiveFromMonTask(void *arg) {
              rt_sem_v(&sem_openCamera);
         }else if(msgRcv->CompareID(MESSAGE_CAM_CLOSE)){
              rt_sem_v(&sem_closeCamera);
-        
         }delete(msgRcv); // mus be deleted manually, no consumer
     }
 }
@@ -422,6 +422,7 @@ void Tasks::StartRobotTask(void *arg) {
         cout << "Start robot without watchdog (";
         rt_mutex_acquire(&mutex_robot, TM_INFINITE);
         msgSend = robot.Write(robot.StartWithoutWD());
+        CompteurA3(msgSend);
         rt_mutex_release(&mutex_robot);
         cout << msgSend->GetID();
         cout << ")" << endl;
@@ -467,7 +468,7 @@ void Tasks::MoveTask(void *arg) {
             cout << " move: " << cpMove;
             
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-            robot.Write(new Message((MessageID)cpMove));
+            CompteurA3(robot.Write(new Message((MessageID)cpMove)));
             rt_mutex_release(&mutex_robot);
         }
         cout << endl << flush;
@@ -505,6 +506,22 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
 
     return msg;
 }
+void Tasks::CompteurA3(Message* msgRecever){
+    cout << "Start Compteur A surveiller "<<endl<<flush;
+        if (msgRecever->GetID()==MESSAGE_ANSWER_ROBOT_TIMEOUT){
+            compteur++;
+            if( compteur==3){
+                cout << msgRecever->GetID()<<"compteur dépasse"<<endl<<flush;
+                rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+                robotStarted = 0;
+                rt_mutex_release(&mutex_robotStarted);
+            }
+        }else {
+            compteur=0;
+        }
+   
+    }
+
 void Tasks::CheckBattery(void *arg){
     
     int rs;
@@ -531,6 +548,7 @@ void Tasks::CheckBattery(void *arg){
              //write to robot, comrobot :: Write
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             level_batterie=robot.Write(robot.GetBattery());
+            CompteurA3(level_batterie);
             rt_mutex_release(&mutex_robot);
             
             cout << " check batterie: " <<level_batterie->ToString()<<endl<<flush ;
@@ -543,6 +561,9 @@ void Tasks::CheckBattery(void *arg){
         cout << endl << flush;
     }
 }
+
+
+
     void Tasks::watchdog(void *arg){
         
         cout << "Start watchdog " << __PRETTY_FUNCTION__ << endl << flush;
@@ -557,6 +578,7 @@ void Tasks::CheckBattery(void *arg){
                 cout << "Start robot with watchdog (";
                 rt_mutex_acquire(&mutex_robot, TM_INFINITE);
                 msgSend = robot.Write(robot.StartWithWD());
+                CompteurA3(msgSend);
                 rt_mutex_release(&mutex_robot);
                 cout << msgSend->GetID();
                 cout << ")" << endl;
@@ -574,7 +596,7 @@ void Tasks::CheckBattery(void *arg){
     
     void Tasks::RobotReloadMessage(void *arg){
  
-        int status;
+        Message* status;
 
         cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
 
@@ -593,10 +615,11 @@ void Tasks::CheckBattery(void *arg){
 
             if (rs != 0) {
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-            status = (robot.Write(robot.ReloadWD()))->GetID();
+            status = robot.Write(robot.ReloadWD());
+            CompteurA3(status);
             rt_mutex_release(&mutex_robot);
             // send info to monitor
-            if (status < 0) {
+            if (status->GetID() < 0) {
                 WriteInQueue(&q_messageToMon, new Message(MESSAGE_ANSWER_NACK));
                 } 
             else {
