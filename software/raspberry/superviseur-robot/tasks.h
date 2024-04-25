@@ -68,6 +68,8 @@ private:
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
     int compteur = 0;
+    int savedArea =0;
+    Arena  area;
     /**********************************************************************/
     /* Tasks                                                              */
     /**********************************************************************/
@@ -83,6 +85,7 @@ private:
     RT_TASK th_openCamera;
     RT_TASK th_captureImage;
     RT_TASK th_closeCamera;
+    RT_TASK th_chercheArea;
  
     
     
@@ -96,7 +99,6 @@ private:
     RT_MUTEX mutex_checkbatterie;
     RT_MUTEX mutex_watchdog;
     RT_MUTEX mutex_camera;
-  
     /**********************************************************************/
     /* Semaphores                                                         */
     /**********************************************************************/
@@ -104,12 +106,13 @@ private:
     RT_SEM sem_openComRobot;
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
+    RT_SEM sem_check_batterie;
     RT_SEM sem_watchdog;
     RT_SEM sem_reloadMessages;
     RT_SEM sem_closeCamera;
     RT_SEM sem_openCamera;
     RT_SEM sem_captureImage;
- 
+    RT_SEM sem_chercheArea;
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -164,6 +167,8 @@ private:
     
     /*fonctionnalite 16*/
     void FermeCamera(void *arg);
+    /*fonctionnalite 17*/
+    void ChercheArea(void *arg);
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/
