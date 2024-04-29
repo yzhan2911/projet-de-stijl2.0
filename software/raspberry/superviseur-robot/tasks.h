@@ -65,6 +65,7 @@ private:
     ComMonitor monitor;
     ComRobot robot;
     Camera* camera;
+    Img* imag;
     int robotStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
     int compteur = 0;
@@ -86,7 +87,7 @@ private:
     RT_TASK th_captureImage;
     RT_TASK th_closeCamera;
     RT_TASK th_chercheArea;
- 
+    RT_TASK th_chercheRobot;
     
     
     /**********************************************************************/
@@ -113,6 +114,8 @@ private:
     RT_SEM sem_openCamera;
     RT_SEM sem_captureImage;
     RT_SEM sem_chercheArea;
+    RT_SEM sem_chercheRobot;
+   
     /**********************************************************************/
     /* Message queues                                                     */
     /**********************************************************************/
@@ -169,6 +172,8 @@ private:
     void FermeCamera(void *arg);
     /*fonctionnalite 17*/
     void ChercheArea(void *arg);
+    /*fonctionnalite 18*/
+    void chercheRobot(void *arg);
     /**********************************************************************/
     /* Queue services                                                     */
     /**********************************************************************/

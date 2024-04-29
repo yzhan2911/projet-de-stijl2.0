@@ -33,6 +33,7 @@
 #define PRIORITY_CLOSECAMERA 21
 #define PRIORITY_CAPTUREIMAGE 21
 #define PRIORITY_CHERCHEAREA 20
+#define PRIORITY_CHERCHEROBOT 21
 /*
  * Some remarks:
  * 1- This program is mostly a template. It shows you how to create tasks, semaphore
@@ -133,6 +134,9 @@ void Tasks::Init() {
     }if (err = rt_sem_create(&sem_check_batterie, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
+    }if (err = rt_sem_create(&sem_chercheRobot, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
     }
     
     
@@ -187,6 +191,9 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }if (err = rt_task_create(&th_chercheArea, "th_chercheArea", 0, PRIORITY_CHERCHEAREA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    } if (err = rt_task_create(&th_chercheRobot, "th_chercheRobot", 0, PRIORITY_CHERCHEROBOT, 0)) {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -258,6 +265,9 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }if (err = rt_task_start(&th_chercheArea, (void(*)(void*)) & Tasks::ChercheArea, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }if (err = rt_task_start(&th_chercheRobot, (void(*)(void*)) & Tasks::chercheRobot, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -383,21 +393,25 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         }else if(msgRcv->CompareID(MESSAGE_CAM_OPEN)){
              rt_sem_v(&sem_openCamera);
         }else if(msgRcv->CompareID(MESSAGE_CAM_CLOSE)){
-             rt_sem_v(&sem_closeCamera);
+               rt_sem_v(&sem_closeCamera);
+              rt_sem_p(&sem_captureImage ,TM_INFINITE);
         }else if(msgRcv->CompareID(MESSAGE_CAM_ASK_ARENA)){
              rt_sem_v(&sem_chercheArea);
         }else if(msgRcv->CompareID(MESSAGE_CAM_ARENA_CONFIRM)){
             savedArea=1;
             cout << "saved area=1" << endl << flush;
-            rt_sem_v(&sem_captureImage);
+           
        
         }else if(msgRcv->CompareID(MESSAGE_CAM_ARENA_INFIRM)){
             savedArea=0;
             cout << "saved area=0" << endl << flush;
-            rt_sem_v(&sem_captureImage);
+            
+        }else if(msgRcv->CompareID(MESSAGE_CAM_POSITION_COMPUTE_START)){
        
+            rt_sem_v(&sem_chercheRobot);
+        }else if(msgRcv->CompareID(MESSAGE_CAM_POSITION_COMPUTE_STOP)){
+            rt_sem_p(&sem_chercheRobot,TM_INFINITE);
         }
-        
         delete(msgRcv); // mus be deleted manually, no consumer
     }
 }
@@ -676,7 +690,7 @@ void Tasks::CheckBattery(void *arg){
             msgSend=new Message(MESSAGE_ANSWER_NACK);
         }
         WriteInQueue(&q_messageToMon,msgSend);
-         rt_sem_v(&sem_captureImage);
+        rt_sem_v(&sem_captureImage);
            
        
     }
@@ -685,24 +699,27 @@ void Tasks::CheckBattery(void *arg){
         rt_sem_p(&sem_barrier, TM_INFINITE);
         rt_sem_p(&sem_captureImage, TM_INFINITE);
         rt_sem_v(&sem_captureImage);
-        bool cameraStatus;
-        Img* imag;
+      
         cout << "Starting to capture image " << endl << flush;
         rt_task_set_periodic(NULL, TM_NOW, 100000000);
         while(1) {
-            rt_task_wait_period(NULL);
             
+            rt_task_wait_period(NULL);
+             cout << "B1------------------------------- " << endl << flush;
             rt_sem_p(&sem_captureImage, TM_INFINITE);
             imag=(camera->Grab()).Copy();
             if (savedArea==1){
                 imag->DrawArena(area);
             }
             rt_sem_v(&sem_captureImage);
-            cameraStatus = camera->IsOpen();
+             bool cameraStatus = camera->IsOpen();
             // send info to monitor
+             cout << "B2------------------------------- " << endl << flush;
+             rt_sem_p(&sem_captureImage, TM_INFINITE);
             if (cameraStatus>0) {
                WriteInQueue(&q_messageToMon,new MessageImg(MESSAGE_CAM_IMAGE,imag));
                 } 
+              rt_sem_v(&sem_captureImage);
             }
             
     
@@ -711,7 +728,7 @@ void Tasks::CheckBattery(void *arg){
         
         rt_sem_p(&sem_barrier, TM_INFINITE);
          rt_sem_p(&sem_closeCamera, TM_INFINITE);
-       
+        
             Message * msgSend;
            
             cout << "close Camera"<<__PRETTY_FUNCTION__ << endl << flush;
@@ -725,7 +742,7 @@ void Tasks::CheckBattery(void *arg){
                 msgSend=new Message(MESSAGE_ANSWER_ACK);
             }
             WriteInQueue(&q_messageToMon,msgSend);
-        
+            
     }
     
     void Tasks::ChercheArea(void * arg){
@@ -736,33 +753,56 @@ void Tasks::CheckBattery(void *arg){
    
         Message * msgSend;
         Img* image;
-        while(1){
-            
-            rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
-            int rs = robotStarted ;
-            rt_mutex_release(&mutex_robotStarted);
-            
-            cout << "Commence à chercher------------------------------------------------------------------------------" << endl << flush;
-           
-            rt_sem_p(&sem_captureImage, TM_INFINITE);
-         
-            cout << "j'ai mutex_capturecamera"<< endl << flush;
-            
-            if (rs != 0) {
-                image=(camera->Grab()).Copy();
-                area=image->SearchArena();
-                cout << "je cherche..." << endl << flush;
-                if(area.IsEmpty()){
-                    msgSend=new Message(MESSAGE_ANSWER_NACK);
-                    WriteInQueue(&q_messageToMon,msgSend);
-                }else{
-                    cout << "j'ai trouvé" << endl << flush;
-                    image->DrawArena(area);
-                     WriteInQueue(&q_messageToMon,new MessageImg(MESSAGE_CAM_IMAGE,image));
-                }
-            }
-           
+        cout << "Commence à chercher AREA------------------------------------------------------------------------------" << endl << flush;
+        rt_sem_p(&sem_captureImage, TM_INFINITE);
+        cout << "j'ai bloqué le camera "<< endl << flush;
+        image=(camera->Grab()).Copy();
+        area=image->SearchArena();
+        cout << "je cherche..." << endl << flush;
+        if(area.IsEmpty()){
+            msgSend=new Message(MESSAGE_ANSWER_NACK);
+            cout<<"area vide-----------------------"<<endl <<flush;
+            WriteInQueue(&q_messageToMon,msgSend);
+        }else{
+            cout << "j'ai trouvé----------------------" << endl << flush;
+            image->DrawArena(area);
+             WriteInQueue(&q_messageToMon,new MessageImg(MESSAGE_CAM_IMAGE,image));
         }
-    
+        rt_sem_v(&sem_captureImage); 
     
     }
+    void Tasks::chercheRobot(void * arg) {
+    rt_sem_p(&sem_barrier, TM_INFINITE);
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    rt_sem_p(&sem_chercheRobot, TM_INFINITE);
+    rt_sem_v(&sem_chercheRobot);
+    Position * positionRobot = nullptr; // Initialisez à nullptr pour éviter les pointeurs indéfinis
+    Message * msgSend;
+    rt_task_set_periodic(NULL, TM_NOW, 100000000);
+    
+    while(1) {
+        rt_sem_p(&sem_chercheRobot, TM_INFINITE);
+        rt_task_wait_period(NULL);   
+        rt_sem_p(&sem_captureImage, TM_INFINITE);    
+
+        if (area.IsEmpty()) {
+            cout << "Veuillez définir 'area' au préalable." << endl << flush;
+        } else {
+             std::list<Position> positions = imag->SearchRobot(area);
+            if (!positions.empty()) {
+                positionRobot = &positions.front();
+                cout << "Position du robot trouvée !!" << endl << flush;
+                imag->DrawRobot(*positionRobot);
+            }
+        }
+        rt_sem_v(&sem_captureImage);
+
+        // Écriture dans la file d'attente
+        if (positionRobot != nullptr) {
+            WriteInQueue(&q_messageToMon, new MessagePosition(MESSAGE_CAM_POSITION, *positionRobot));
+        }
+         rt_sem_v(&sem_chercheRobot);
+    }
+}
+
+
